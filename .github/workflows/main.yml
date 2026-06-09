@@ -1,0 +1,44 @@
+# Saves your Adafruit sensor data into the repo forever, for free.
+# It runs on a schedule; each run commits data.csv, and that commit also keeps
+# the schedule from being auto-disabled after 60 days of inactivity.
+
+name: Archive sensor data
+
+on:
+  schedule:
+    - cron: "17 */12 * * *"   # every 12 hours, at minute :17 (UTC). Plenty: Adafruit keeps 30 days.
+  workflow_dispatch:           # lets you run it by hand from the Actions tab (for testing)
+
+permissions:
+  contents: write              # allows the job to commit data.csv back to the repo
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Harvest from Adafruit IO
+        env:
+          AIO_USER: alkisgt       # <-- your Adafruit IO username (change if different)
+          AIO_FEED: mv-signal     # <-- the feed key you want to archive
+          AIO_KEY: ${{ secrets.AIO_KEY }}   # <-- comes from the repository Secret (never in the code)
+        run: python archive_adafruit.py
+
+      - name: Commit the new data
+        run: |
+          git config user.name  "esn-archiver"
+          git config user.email "actions@users.noreply.github.com"
+          git add data.csv
+          if git diff --staged --quiet; then
+            echo "No new data this run."
+          else
+            git commit -m "Archive sensor data $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi

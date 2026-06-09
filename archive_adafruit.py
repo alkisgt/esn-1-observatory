@@ -24,8 +24,8 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-USER = os.environ["alkisgt"]
-FEED = os.environ["mv-signal"]
+USER = os.environ["AIO_USER"]
+FEED = os.environ["AIO_FEED"]
 KEY = os.environ["AIO_KEY"]
 
 CSV_PATH = "data.csv"

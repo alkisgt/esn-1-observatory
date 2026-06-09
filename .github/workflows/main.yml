@@ -1,16 +1,17 @@
 # Saves your Adafruit sensor data into the repo forever, for free.
-# It runs on a schedule; each run commits data.csv, and that commit also keeps
-# the schedule from being auto-disabled after 60 days of inactivity.
+# Each run: (1) harvests new raw data into data.csv (full resolution, permanent archive),
+#           (2) rebuilds hourly.csv (tiny summary the dashboard reads),
+#           (3) commits both -- and that commit also keeps the schedule alive past 60 days.
 
 name: Archive sensor data
 
 on:
   schedule:
-    - cron: "17 */12 * * *"   # every 12 hours, at minute :17 (UTC). Plenty: Adafruit keeps 30 days.
-  workflow_dispatch:           # lets you run it by hand from the Actions tab (for testing)
+    - cron: "17 */12 * * *"   # every 12 hours, at minute :17 (UTC)
+  workflow_dispatch:           # lets you run it by hand from the Actions tab
 
 permissions:
-  contents: write              # allows the job to commit data.csv back to the repo
+  contents: write              # allows the job to commit back to the repo
 
 jobs:
   archive:
@@ -26,16 +27,19 @@ jobs:
 
       - name: Harvest from Adafruit IO
         env:
-          AIO_USER: alkisgt       # <-- your Adafruit IO username (change if different)
-          AIO_FEED: mv-signal     # <-- the feed key you want to archive
-          AIO_KEY: ${{ secrets.AIO_KEY }}   # <-- comes from the repository Secret (never in the code)
+          AIO_USER: alkisgt       # your Adafruit IO username
+          AIO_FEED: mv-signal     # the feed key to archive
+          AIO_KEY: ${{ secrets.AIO_KEY }}   # comes from the repository Secret (never in the code)
         run: python archive_adafruit.py
+
+      - name: Build hourly summary for the dashboard
+        run: python aggregate_hourly.py
 
       - name: Commit the new data
         run: |
           git config user.name  "esn-archiver"
           git config user.email "actions@users.noreply.github.com"
-          git add data.csv
+          git add data.csv hourly.csv
           if git diff --staged --quiet; then
             echo "No new data this run."
           else
